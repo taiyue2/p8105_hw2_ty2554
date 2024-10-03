@@ -1,0 +1,331 @@
+---
+title: "Untitled"
+author: "Tai Yue"
+date: "2024-09-27"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+problem1:
+
+```{r}
+data <- read.csv('NYC_Transit_Subway_Entrance_And_Exit_Data.csv')
+
+library(dplyr)
+
+
+cleaned_data <- data %>%
+  select(Line, `Station.Name`, `Station.Latitude`, `Station.Longitude`, 
+         Route1, Route2, Route3, Route4, Entry, Vending, `Entrance.Type`, ADA) %>%
+  mutate(Entry = ifelse(Entry == "YES", TRUE, FALSE))
+
+dim(cleaned_data)
+
+
+
+
+```
+ the data are generally tidy. In tidy data, each variable forms a column, each observation forms a row, and each type of observational unit forms a table.However, there are four separate columns (Route1, Route2, Route3, and Route4) representing different subway routes served by each station.
+ 
+```{r}
+
+library(dplyr)
+library(tidyr)
+
+cleaned_data <- data %>%
+  select(Line, `Station.Name`, `Station.Latitude`, `Station.Longitude`, 
+         Route1, Route2, Route3, Route4, Entry, Vending, `Entrance.Type`, ADA) %>%
+  mutate(Entry = ifelse(Entry == "YES", TRUE, FALSE))
+
+
+distinct_stations <- cleaned_data %>%
+  distinct(`Station.Name`, Line) %>%
+  nrow()
+
+
+ada_compliant_stations <- cleaned_data %>%
+  filter(ADA == TRUE) %>%
+  distinct(`Station.Name`, Line) %>%
+  nrow()
+
+
+proportion_without_vending_allows_entry <- cleaned_data %>%
+  filter(Vending == "NO") %>%
+  summarise(proportion = mean(Entry)) %>%
+  pull(proportion)
+
+
+routes_melted <- cleaned_data %>%
+  pivot_longer(cols = starts_with("Route"), names_to = "Route Number", values_to = "Route Name") %>%
+  filter(!is.na(`Route Name`))
+
+stations_serving_A_train <- routes_melted %>%
+  filter(`Route Name` == "A") %>%
+  distinct(`Station.Name`, Line) %>%
+  nrow()
+
+ada_compliant_A_train_stations <- routes_melted %>%
+  filter(`Route Name` == "A", ADA == TRUE) %>%
+  distinct(`Station.Name`, Line) %>%
+  nrow()
+
+list(
+  distinct_stations = distinct_stations,
+  ada_compliant_stations = ada_compliant_stations,
+  proportion_without_vending_allows_entry = proportion_without_vending_allows_entry,
+  stations_serving_A_train = stations_serving_A_train,
+  ada_compliant_A_train_stations = ada_compliant_A_train_stations
+)
+
+```
+problem2:
+```{r}
+
+library(readxl)
+library(dplyr)
+
+
+trash_wheel_data <- read_excel("202409 Trash Wheel Collection Data.xlsx", 
+                               sheet = "Mr. Trash Wheel", skip = 1)
+
+
+names(trash_wheel_data) <- c("Dumpster", "Month", "Year", "Date", "Weight_Tons", 
+                             "Volume_Cubic_Yards", "Plastic_Bottles", "Polystyrene", 
+                             "Cigarette_Butts", "Glass_Bottles", "Plastic_Bags", 
+                             "Wrappers", "Sports_Balls", "Homes_Powered", "Extra1", "Extra2")
+
+
+trash_wheel_data <- trash_wheel_data %>%
+  select(-Extra1, -Extra2)
+
+
+trash_wheel_data <- trash_wheel_data %>%
+  filter(!is.na(Dumpster))
+
+
+trash_wheel_data <- trash_wheel_data %>%
+  mutate(Sports_Balls = as.integer(round(Sports_Balls, 0)))
+
+
+head(trash_wheel_data)
+
+```
+```{r}
+
+library(readxl)
+library(dplyr)
+
+
+clean_trash_wheel_data <- function(file_path, sheet_name, wheel_name) {
+  data <- read_excel(file_path, sheet = sheet_name, skip = 1)
+  
+ 
+  col_names <- c("Dumpster", "Month", "Year", "Date", "Weight_Tons", 
+                 "Volume_Cubic_Yards", "Plastic_Bottles", "Polystyrene", 
+                 "Cigarette_Butts", "Glass_Bottles", "Plastic_Bags", 
+                 "Wrappers", "Sports_Balls", "Homes_Powered", "Extra1", "Extra2")
+  
+  
+  names(data) <- col_names[1:ncol(data)]
+  
+  
+  data <- data %>%
+    select(-starts_with("Extra"))
+  
+  
+  data <- data %>%
+    filter(!is.na(Dumpster))
+  
+  if ("Sports_Balls" %in% names(data)) {
+    data <- data %>%
+      mutate(Sports_Balls = as.integer(round(Sports_Balls, 0)))
+  }
+  
+  
+  data <- data %>%
+    mutate(Trash_Wheel = wheel_name)
+  
+  return(data)
+}
+
+
+file <- "202409 Trash Wheel Collection Data.xlsx"
+
+
+mr_trash_wheel <- clean_trash_wheel_data(file, "Mr. Trash Wheel", "Mr. Trash Wheel")
+professor_trash_wheel <- clean_trash_wheel_data(file, "Professor Trash Wheel", "Professor Trash Wheel")
+gwynnda_trash_wheel <- clean_trash_wheel_data(file, "Gwynnda Trash Wheel", "Gwynnda Trash Wheel")
+
+
+common_cols <- intersect(names(mr_trash_wheel), intersect(names(professor_trash_wheel), names(gwynnda_trash_wheel)))
+
+
+mr_trash_wheel <- mr_trash_wheel %>% select(all_of(common_cols))
+professor_trash_wheel <- professor_trash_wheel %>% select(all_of(common_cols))
+gwynnda_trash_wheel <- gwynnda_trash_wheel %>% select(all_of(common_cols))
+
+
+mr_trash_wheel <- mr_trash_wheel %>%
+  mutate(Year = as.character(Year), 
+         Date = as.Date(Date))
+
+professor_trash_wheel <- professor_trash_wheel %>%
+  mutate(Year = as.character(Year), 
+         Date = as.Date(Date))
+
+gwynnda_trash_wheel <- gwynnda_trash_wheel %>%
+  mutate(Year = as.character(Year), 
+         Date = as.Date(Date))
+
+
+combined_trash_wheel_data <- bind_rows(mr_trash_wheel, professor_trash_wheel, gwynnda_trash_wheel)
+
+
+head(combined_trash_wheel_data)
+
+```
+The combined dataset contains data collected by multiple trash wheels, including Mr. Trash Wheel, Professor Trash Wheel, and Gwynnda Trash Wheel. The dataset includes key variables such as the weight of trash collected, volume, and the number of specific types of waste like plastic bottles, cigarette butts, and polystyrene.
+
+For example, Professor Trash Wheel collected a total of approximately 246.74 tons of trash based on the available data. Additionally, Gwynnda Trash Wheel collected 16,720 cigarette butts in June of 2022. This dataset provides an insightful overview of the types and quantities of waste being removed by each trash wheel.
+
+
+problem3:
+```{r}
+
+library(dplyr)
+library(readr)
+
+
+bakers <- read_csv("bakers.csv")
+bakes <- read_csv("bakes.csv")
+results <- read_csv("results.csv")
+
+
+colnames(bakers)
+colnames(bakes)
+colnames(results)
+
+
+bakers <- bakers %>%
+  rename(Baker = `Baker Name`)
+
+
+results_cleaned <- results[-1, ]  # Remove the first row with headers inside the data
+colnames(results_cleaned) <- c("Series", "Episode", "Baker", "Technical", "Result")
+
+
+bakers <- bakers %>%
+  mutate(Baker = trimws(Baker)) 
+
+bakes <- bakes %>%
+  mutate(Baker = trimws(Baker))
+
+results_cleaned <- results_cleaned %>%
+  mutate(Baker = trimws(Baker))  
+
+bakers <- bakers %>%
+  mutate(Series = as.character(Series))
+
+bakes <- bakes %>%
+  mutate(Series = as.character(Series)) 
+
+results_cleaned <- results_cleaned %>%
+  mutate(Series = as.character(Series)) 
+
+
+bakes <- bakes %>%
+  mutate(Episode = as.character(Episode)) 
+
+results_cleaned <- results_cleaned %>%
+  mutate(Episode = as.character(Episode))  
+
+
+merged_data <- bakes %>%
+  left_join(bakers, by = c("Series", "Baker")) %>%
+  left_join(results_cleaned, by = c("Series", "Episode", "Baker"))
+
+print(head(merged_data))
+
+
+write_csv(merged_data, "final_bake_off_data.csv")
+
+
+summary(merged_data)
+
+colnames(merged_data)
+
+
+```
+The first step was to inspect the column names in all three datasets to ensure consistency across them. In the case of the bakers dataset, I identified that the column containing baker names was labeled as Baker Name, while in the other datasets, it was just Baker. To solve this, I renamed the column in the bakers dataset to Baker to maintain consistency across the merges.The initial error indicated that the Series column had a mismatch in data types between datasets .To fix this, I converted the Series and Episode columns in all datasets to character type. This ensured a smooth join process without data type conflicts.
+ Another potential issue that could affect merging is whitespace in the Baker column. To ensure no trailing or leading spaces affected the merge, I used trimws() on the Baker columns in all datasets to make the entries consistent for the join.After cleaning the datasets, I merged them using left_join() based on the Series, Baker, and Episode columns. This step combines information from the bakes, bakers, and results datasets into a single dataset. After merging the data, I analyzed the final dataset to ensure that the join was successful and no important data was missing. The final dataset displayed relevant details such as Series, Episode, and Baker, as well as other columns.
+ 
+```{r}
+
+library(dplyr)
+library(readr)
+
+
+results <- read_csv("results.csv", skip = 1)  # Skipping the first row as it contains extra headers
+
+
+colnames(results) <- c("Series", "Episode", "Baker", "Technical", "Result")
+
+
+results <- results %>%
+  mutate(Series = as.character(Series))
+
+
+filtered_results <- results %>%
+  filter(Series %in% c("5", "6", "7", "8", "9", "10"), Result %in% c("STAR BAKER", "WINNER"))
+
+
+filtered_results <- filtered_results %>%
+  select(Series, Episode, Baker, Result)
+
+
+print(filtered_results)
+
+
+write_csv(filtered_results, "star_bakers_and_winners_season_5_to_10.csv")
+
+```
+
+Richard had an excellent performance during the seasons, earning Star Baker five times. Given this, we could expect him to be the predictable winner. Despite Richard's good performance, Nancy won the competition in the final episode. This is surprising given Richard's consistent performance. Nancy only earned Star Baker once in the first episode but ultimately won the finale. This outcome suggests that the final episode carries significant weight in determining the winner.
+
+```{r}
+
+library(dplyr)
+library(readr)
+
+
+viewers <- read_csv("viewers.csv")
+
+
+head(viewers)
+
+
+colnames(viewers) <- c("Episode", "Series_1", "Series_2", "Series_3", "Series_4", "Series_5", "Series_6", 
+                       "Series_7", "Series_8", "Series_9", "Series_10")
+
+
+first_10_rows <- head(viewers, 10)
+print(first_10_rows)
+
+
+```
+
+```{r}
+
+avg_viewership_season_1 <- mean(viewers$Series_1, na.rm = TRUE)
+avg_viewership_season_5 <- mean(viewers$Series_5, na.rm = TRUE)
+
+
+cat("Average viewership for Season 1: ", avg_viewership_season_1, "million\n")
+cat("Average viewership for Season 5: ", avg_viewership_season_5, "million\n")
+```
+
